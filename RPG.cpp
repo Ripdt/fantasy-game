@@ -7,16 +7,7 @@
 
 using namespace std;
 
-
-/**
-	F L A P P Y B I R D (M2 Algoritmos)
-	- Lembrando: não permitido o uso de funções e variáveis compostas como structs, vetores e matrizes
-	- Corrigir os rastros (pássaro e obstáculos)
-	- Implementar colisão
-	- Implementar pontuação (mais um ponto para cada obstáculo superado)
-	- Fazer 2 obstáculos simultâneos (obstaculo1 e obstaculo2)
-	- Deixar a pontuação visível durante todo o jogo
-	- Definir marcos para acelerar a velocidade
+/*
 	DESENVOLVEDORES:
 		- Filipi Scalvin da Costa
 		- Luiz Carlos Braga

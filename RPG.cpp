@@ -2,8 +2,6 @@
 #include <string>
 #include <time.h>
 #include <windows.h>
-#include <conio.h> ///para o getch()
-#include <time.h> ///para o time()
 
 using namespace std;
 
@@ -129,6 +127,7 @@ Mapa CriarMapa(int altura, int largura) {
 
 bool PosicaoValida(int posX, int posY, Bloco* bloco, int altura, int largura) {
 	return
+		posX >= 0 && posX < altura && posY >= 0 && posY < largura && // endereço correto
 		((bloco + posX) + posY)->semPedra && ((bloco + posX) + posY)->semInimigo && // sem inimigo e sem pedra
 		(																	// verifica se tem saída
 			posX + 1 < altura && ((bloco + posX + 1) + posY)->semPedra ||	// em cima
@@ -136,6 +135,25 @@ bool PosicaoValida(int posX, int posY, Bloco* bloco, int altura, int largura) {
 			posY + 1 < largura && ((bloco + posX) + posY + 1)->semPedra ||	// direita
 			posY - 1 >= 0 && ((bloco + posX) + posY + 1)->semPedra			// esquerda
 		); 
+}
+
+void PosicionaInimigos(int nroInimigos, Fase &fase) {
+	int cont = nroInimigos;
+	while (cont > 0) {
+		int x = rand() % fase.map.altura;
+		int y = rand() % fase.map.largura;
+		if (PosicaoValida(x, y, &fase.map.blocos[x][y], fase.map.altura, fase.map.largura)) {
+			cont--;
+			fase.map.blocos[x][y].pInimigo = &fase.inimigos[cont];
+			fase.map.blocos[x][y].semInimigo = false;
+		}
+	}
+}
+
+char CharBloco(Bloco posicao) {
+	if (posicao.semInimigo && posicao.semPedra) return ' ';
+
+	return char(219);
 }
 
 Fase CriarFase(int nroInimigos, Inimigo* inimigos, int alturaMapa, int larguraMapa) {
@@ -146,64 +164,61 @@ Fase CriarFase(int nroInimigos, Inimigo* inimigos, int alturaMapa, int larguraMa
 
 	fase.map = CriarMapa(alturaMapa, larguraMapa);
 
-	int cont = nroInimigos;
-	while (cont > 0) {
-		int x = rand() % alturaMapa;
-		int y = rand() % larguraMapa;
-		if (PosicaoValida(x, y, &fase.map.blocos[x][y], alturaMapa, larguraMapa)) {
-			cont--;
-			fase.map.blocos[x][y].pInimigo = &fase.inimigos[cont];
-			fase.map.blocos[x][y].semInimigo = false;
-		}
-	}
-	for (int i = 0; i < alturaMapa; i++) {
-		for (int j = 0; j < larguraMapa; j++) {
-			if (fase.map.blocos[i][j].semInimigo) {
-				if (fase.map.blocos[i][j].semPedra) {
-					cout << " ";
-				}
-				else {
-					cout << char(219);
-				}
-			}
-		}
-		cout << endl;
-	}
-	cout << fase.nome << endl;
+	PosicionaInimigos(nroInimigos, fase);
 
 	return fase;
-
 }
 
-Jogador CriaJogador(int alt, int larg, Mapa map) {
+Jogador CriaJogador(Mapa map) {
 	Arma aJ = { 4, 10 };
 
 	int posX, posY;
 	posX = 0; posY = 0;
 
-	while (!PosicaoValida(posX, posY, &map.blocos[posX][posY], alt, larg)) {
-		posX = rand() % alt;
-		posY = rand() % larg;
+	while (!PosicaoValida(posX, posY, &map.blocos[posX][posY], map.altura, map.largura)) {
+		posX = rand() % map.altura;
+		posY = rand() % map.largura;
 	}
 
 	return { 1, 100, aJ, posX, posY };
 }
 
+void ImprimeMapa(Mapa map, Jogador jog) {
+	system("cls");
+	for (int i = 0; i < map.altura; i++) {
+		for (int j = 0; j < map.largura; j++) {
+			if (i == jog.posX && j == jog.posY) {
+				cout << "O";
+			}
+			else {
+				cout << CharBloco(map.blocos[i][j]);
+			}
+		}
+		cout << endl;
+	}
+}
+
+void Movimentar(int &posX, int &posY, Mapa map) {
+	char tecla;
+	cout << endl << "Escolha um:\n\tW - Cima\n\tA - Esquerda\n\tS - Baixo\n\tD - Direita\n\n";
+	cin >> tecla;
+	if ((tecla == 'w' || tecla == 'W') && PosicaoValida(posX - 1, posY, &map.blocos[posX - 1][posY], map.altura, map.largura)) {
+		posX--;
+	}
+	else if ((tecla == 'a' || tecla == 'A') && PosicaoValida(posX, posY - 1, &map.blocos[posX][posY - 1], map.altura, map.largura)) {
+		posY--;
+	}
+	else if ((tecla == 's' || tecla == 'S') && PosicaoValida(posX + 1, posY, &map.blocos[posX + 1][posY], map.altura, map.largura)) {
+		posX++;
+	}
+	else if ((tecla == 'd' || tecla == 'D') && PosicaoValida(posX, posY + 1, &map.blocos[posX][posY + 1], map.altura, map.largura)) {
+		posY++;
+	}
+}
+
 int main()
 {
-	///ALERTA: NÃO MODIFICAR O TRECHO DE CÓDIGO, A SEGUIR.
-	//COMANDOS PARA QUE O CURSOR NÃO FIQUE PISCANDO NA TELA
-	HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
-	CONSOLE_CURSOR_INFO     cursorInfo;
-	GetConsoleCursorInfo(out, &cursorInfo);
-	cursorInfo.bVisible = false; // set the cursor visibility
-	SetConsoleCursorInfo(out, &cursorInfo);
-	COORD coord; // reposiciona o cursor
 	srand(time(NULL));
-	///ALERTA: NÃO MODIFICAR O TRECHO DE CÓDIGO, ACIMA.
-
-	coord.X = 0;    coord.Y = 0;
-	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 
 	int altura, largura;
 	int nInimigos;
@@ -224,7 +239,13 @@ int main()
 
 	Fase fase = CriarFase(nInimigos, inimigos, altura, largura);
 
-	Jogador jog = CriaJogador(altura, largura, fase.map);
+	Jogador jog = CriaJogador(fase.map);
+
+	while (jog.vida > 0) {
+		ImprimeMapa(fase.map, jog);
+		Movimentar(jog.posX,jog.posY,fase.map);
+	}
+
 
 	/*
 	Arma aI = { 1, 5 };

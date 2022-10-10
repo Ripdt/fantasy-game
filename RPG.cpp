@@ -1,8 +1,8 @@
-//#include "stdafx.h"
+//#include "stdafx.h" //depende da versão do visual studio
 #include <iostream>
 #include <string>
 #include <time.h>
-#include <windows.h>
+#include <windows.h> ///para o sleep()
 #include <conio.h> ///para o getch()
 
 using namespace std;
@@ -38,8 +38,8 @@ struct Inimigo {
 };
 
 struct Bloco {
-	bool semPedra;
-	bool semInimigo;
+	bool pedra;
+	bool inimigo;
 	Inimigo* pInimigo;
 };
 
@@ -57,12 +57,12 @@ struct Fase {
 };
 
 template<typename T>
-bool morreu(T personagem) {
-	return personagem.vida < 0;
+bool Morreu(T personagem) {
+	return personagem.vida <= 0;
 }
 
 template<typename Tata, typename Tdef>
-Tdef ataque(Tata atacante, Tdef defensor) {
+Tdef Ataque(Tata atacante, Tdef defensor) {
 	int intervalo_dano = atacante.arma.dano_maximo - atacante.arma.dano_minimo + 1;
 	int dano = atacante.arma.dano_minimo + rand() % intervalo_dano;
 
@@ -71,119 +71,121 @@ Tdef ataque(Tata atacante, Tdef defensor) {
 	return defensor;
 }
 
-void jogar_fase(Jogador jog, Fase fase) {
-	cout << "Começou " << fase.nome << endl << endl;
-
-	for (int atual = 0; atual < 5; atual++) {
-
-		cout << fase.inimigos[atual].nome << " foi morto" << endl << endl;
-	}
-
-	cout << "O jogador passou a fase";
-}
-
 void Combate(Inimigo& inimigo, Jogador& jog) {
 	system("cls");
-	while (!morreu<Inimigo>(inimigo)) {
-		jog = ataque<Inimigo, Jogador>(inimigo, jog);
-		inimigo = ataque<Jogador, Inimigo>(jog, inimigo);
+	while (!Morreu<Jogador>(jog)) {
 
+		// TURNO DO JOGADOR
+		jog = Ataque<Inimigo, Jogador>(inimigo, jog);
 		cout << "O jogador atacou " << inimigo.nome << " e ele ficou com " << inimigo.vida << " de vida" << endl;
-		cout << "O " << inimigo.nome << " atacou o jogador ao mesmo tempo e o deixou com " << jog.vida << " de vida" << endl << endl;
-
-		if (morreu<Jogador>(jog)) {
-			cout << "O jogador morreu, o jogo acabou";
+		if (Morreu<Inimigo>(inimigo)) {
+			cout << "\nInimigo foi morto\n";
+			char tecla = _getch();
 			return;
 		}
+
+		// TURNO DO INIMIGO
+		inimigo = Ataque<Jogador, Inimigo>(jog, inimigo);
+		cout << "O " << inimigo.nome << " atacou o jogador e o deixou com " << jog.vida << " de vida" << endl << endl;
 	}
 
-	cout << "\nInimigo foi morto";
-	char tecla = _getch();
+	cout << "\nO jogador morreu! O jogo acabou!\n";
+}
+
+void GeraPosicao(int& X, int& Y, Mapa& map) {
+	while (map.blocos[X][Y].pedra || map.blocos[X][Y].inimigo) {
+		X = rand() % map.altura;
+		Y = rand() % map.largura;
+	}
+}
+
+Jogador CriarJogador(Mapa map) {
+	Arma aJ = { 4, 10 };
+
+	int posX = 0;
+	int posY = 0;
+
+	GeraPosicao(posX, posY, map);
+
+	return { 1, 100, aJ, posX, posY };
 }
 
 Mapa CriarMapa(int altura, int largura) {
-	Mapa mapa;
-	mapa.altura = altura;
-	mapa.largura = largura;
+	Mapa map;
+
+	map.altura = altura;
+	map.largura = largura;
 
 	// ALOCAÇÃO NA MEMÓRIA
-	mapa.blocos = new Bloco * [altura];
+	map.blocos = new Bloco * [altura];
 	for (int i = 0; i < altura; i++) {
-		mapa.blocos[i] = new Bloco[largura];
-	}
-
-	int qtdBlocks = altura * largura * 20 / 100; // Área*20% = quantidade de pedras
-
-	while (qtdBlocks > 0) {
-		int linha = rand() % altura;
-		int coluna = rand() % largura;
-
-		if (mapa.blocos[linha][coluna].semPedra) { // não está bloqueado
-			mapa.blocos[linha][coluna].semPedra = false;
-			qtdBlocks--;
+		map.blocos[i] = new Bloco[largura];
+		for (int j = 0; j < largura; j++) { // inicialização
+			map.blocos[i][j].pedra = true;
+			map.blocos[i][j].inimigo = false;
 		}
 	}
 
-	return mapa;
-}
+	int qtdPedras = map.altura * map.largura * 20 / 100; // Área*20% = quantidade de pedras
+	int qtdBlocos = map.altura * map.largura;
 
-bool PosicaoValida(int posX, int posY, Bloco* bloco, int altura, int largura) {
-	return
-		((bloco + posX) + posY)->semPedra && ((bloco + posX) + posY)->semInimigo && // sem inimigo e sem pedra
-		(																	// verifica se tem saída
-			posX + 1 < altura && ((bloco + posX + 1) + posY)->semPedra ||	// em cima
-			posX - 1 >= 0 && ((bloco + posX - 1) + posY)->semPedra ||		// embaixo
-			posY + 1 < largura && ((bloco + posX) + posY + 1)->semPedra ||	// direita
-			posY - 1 >= 0 && ((bloco + posX) + posY - 1)->semPedra			// esquerda
-			);
-}
+	int posX = rand() % altura;
+	int posY = rand() % largura;
 
-void PosicionaInimigos(int nroInimigos, Fase& fase) {
-	int cont = nroInimigos;
-	while (cont > 0) {
-		int x = rand() % fase.map.altura;
-		int y = rand() % fase.map.largura;
-		if (PosicaoValida(x, y, &fase.map.blocos[x][y], fase.map.altura, fase.map.largura)) {
-			cont--;
-			fase.map.blocos[x][y].pInimigo = &fase.inimigos[cont];
-			fase.map.blocos[x][y].semInimigo = false;
+	while (qtdPedras < qtdBlocos) {
+		int mov = rand() % 4;
+
+		if (mov == 0 && posX + 1 < map.altura) { // CIMA
+			posX++;
 		}
+		else if (mov == 1 && posY + 1 < map.largura) { // DIREITA
+			posY++;
+		}
+		else if (mov == 2 && posX - 1 >= 0) { // BAIXO
+			posX--;
+		}
+		else if (mov == 3 && posY - 1 >= 0) { // ESQUERDA
+			posY--;
+		}
+
+		if (map.blocos[posX][posY].pedra)
+			qtdBlocos--;
+		map.blocos[posX][posY].pedra = false;
 	}
+
+	return map;
 }
 
 char TipoBloco(Bloco posicao) {
-	if (posicao.semInimigo && posicao.semPedra) return ' ';
+	if (!posicao.inimigo && !posicao.pedra) return ' ';
 
-	if (!posicao.semInimigo) return 'L';
+	if (posicao.inimigo) return posicao.pInimigo->nome[0];
 
 	return char(219);
 }
 
 Fase CriarFase(int nroInimigos, Inimigo* inimigos, int alturaMapa, int larguraMapa) {
 	Fase fase;
-	fase.nome = "Prototipo";
+	fase.nome = "Calabouço do Medo";
 	fase.nroInimigos = nroInimigos;
 	fase.inimigos = inimigos;
 
+	cout << "Carregando Calabouço do Medo...";
+
 	fase.map = CriarMapa(alturaMapa, larguraMapa);
 
-	PosicionaInimigos(nroInimigos, fase);
-
-	return fase;
-}
-
-Jogador CriaJogador(Mapa map) {
-	Arma aJ = { 4, 10 };
-
-	int posX, posY;
-	posX = 0; posY = 0;
-
-	while (!PosicaoValida(posX, posY, &map.blocos[posX][posY], map.altura, map.largura)) {
-		posX = rand() % map.altura;
-		posY = rand() % map.largura;
+	// POSICIONA INIMIGOS
+	int cont = nroInimigos;
+	while (cont > 0) {
+		int x = 0;
+		int y = 0;
+		GeraPosicao(x, y, fase.map);
+		cont--;
+		fase.map.blocos[x][y].pInimigo = &fase.inimigos[cont];
+		fase.map.blocos[x][y].inimigo = true;
 	}
 
-	return { 1, 100, aJ, posX, posY };
+	return fase;
 }
 
 void ImprimeMapa(Mapa map, Jogador jog) {
@@ -191,7 +193,7 @@ void ImprimeMapa(Mapa map, Jogador jog) {
 	for (int i = 0; i < map.altura; i++) {
 		for (int j = 0; j < map.largura; j++) {
 			if (i == jog.posX && j == jog.posY) {
-				cout << "O";
+				cout << char(157);
 			}
 			else {
 				cout << TipoBloco(map.blocos[i][j]);
@@ -204,18 +206,35 @@ void ImprimeMapa(Mapa map, Jogador jog) {
 void Movimentar(int& posX, int& posY, Mapa map) {
 	cout << endl << "Escolha um:\n\tW - Cima\n\tA - Esquerda\n\tS - Baixo\n\tD - Direita\n\n";
 	char tecla = _getch();
-	if ((tecla == 'w' || tecla == 'W') && posX - 1 >= 0 && map.blocos[posX - 1][posY].semPedra) {
+	if ((tecla == 'w' || tecla == 'W') && posX - 1 >= 0 && !map.blocos[posX - 1][posY].pedra) {
 		posX--;
 	}
-	else if ((tecla == 'a' || tecla == 'A') && posY - 1 >= 0 && map.blocos[posX][posY - 1].semPedra) {
+	else if ((tecla == 'a' || tecla == 'A') && posY - 1 >= 0 && !map.blocos[posX][posY - 1].pedra) {
 		posY--;
 	}
-	else if ((tecla == 's' || tecla == 'S') && posX + 1 < map.altura && map.blocos[posX + 1][posY].semPedra) {
+	else if ((tecla == 's' || tecla == 'S') && posX + 1 < map.altura && !map.blocos[posX + 1][posY].pedra) {
 		posX++;
 	}
-	else if ((tecla == 'd' || tecla == 'D') && posY + 1 < map.largura && map.blocos[posX][posY + 1].semPedra) {
+	else if ((tecla == 'd' || tecla == 'D') && posY + 1 < map.largura && !map.blocos[posX][posY + 1].pedra) {
 		posY++;
 	}
+}
+
+void JogarFase(Fase& fase, Jogador& jog) {
+	while (!Morreu<Jogador>(jog) && fase.nroInimigos > 0) {
+		ImprimeMapa(fase.map, jog);
+		Movimentar(jog.posX, jog.posY, fase.map);
+		if (fase.map.blocos[jog.posX][jog.posY].inimigo) {
+			Combate(*fase.map.blocos[jog.posX][jog.posY].pInimigo, jog);
+			if (Morreu<Inimigo>(*fase.map.blocos[jog.posX][jog.posY].pInimigo)) {
+				fase.nroInimigos--;
+				fase.map.blocos[jog.posX][jog.posY].inimigo = false;
+			}
+		}
+
+	}
+	if (fase.nroInimigos == 0)
+		cout << "\n\nVocê completou a fase " << fase.nome << "! Parabéns!\n";
 }
 
 int main()
@@ -237,20 +256,20 @@ int main()
 	inimigos[1] = { "Goblerto", 30, aI };
 	inimigos[2] = { "Gobo", 40, aI };
 	inimigos[3] = { "Goblinio", 50, aI };
-	inimigos[4] = { "Juca", 95, aI };
+	inimigos[4] = { "Juca", 60, aI };
 
-	Fase fase = CriarFase(nInimigos, inimigos, altura, largura);
+	Fase fase;
+	Jogador jog;
 
-	Jogador jog = CriaJogador(fase.map);
+	fase = CriarFase(nInimigos, inimigos, altura, largura);
+	jog = CriarJogador(fase.map);
 
-	while (jog.vida > 0) {
-		ImprimeMapa(fase.map, jog);
-		Movimentar(jog.posX, jog.posY, fase.map);
-		if (!fase.map.blocos[jog.posX][jog.posY].semInimigo) {
-			Combate(*fase.map.blocos[jog.posX][jog.posY].pInimigo, jog);
-			fase.map.blocos[jog.posX][jog.posY].semInimigo = true;
-		}
-	}
+
+	cout << "Iniciando " << fase.nome << "..." << endl << endl;
+
+	JogarFase(fase, jog);
+
+	cout << endl << "Aperte qualquer tecla para sair." << endl << endl;
 
 	char tecla = _getch();
 
